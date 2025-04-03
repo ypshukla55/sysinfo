@@ -1,0 +1,296 @@
+---
+- name: Fetch information from hosts
+  hosts: all
+  become: true
+  gather_facts: true
+  vars_files:
+    - secret
+  tasks:
+    - name: Gather information from hosts
+      block:
+        - name: Check and manage all services
+          block:
+            - name: Initialize service statuses
+              set_fact:
+                service_statuses: {}
+            
+            - name: Check services in parallel
+              include_tasks: services.yml
+              loop:
+                - { name: 'sssd', display: 'SSSD' }
+                - { name: 'rsyslog', display: 'Rsyslog' }
+                - { name: 'rpcgssd', display: 'Rpcgssd' }
+                - { name: 'named-chroot', display: 'Named_Chroot' }
+                - { name: 'autofs', display: 'Autofs' }
+              loop_control:
+                loop_var: service_item
+
+        - name: Check PermitRootLogin in sshd_config
+          shell: "grep -E '^#?[[:space:]]*PermitRootLogin[[:space:]]+' /etc/ssh/sshd_config | head -1 || true"
+          register: permit_root_login
+          changed_when: false
+
+        - name: Check if Ansible is installed
+          shell: |
+            if yum list installed | grep -iq ansible; then
+              echo "installed"
+            else
+              echo "not_installed"
+            fi
+          register: ansible_check
+          changed_when: false
+
+        - name: Get all IP addresses
+          shell: ip addr
+          register: ip_addr_raw
+          changed_when: false
+
+        - name: Filter IP with 20.224
+          set_fact:
+            ip_addr: "{{ ip_addr_raw.stdout | regex_search('20\\.224\\.[0-9]+\\.[0-9]+') }}"
+          when: "'20.224' in ip_addr_raw.stdout"
+
+        - name: Check system information
+          shell: "uname -a"
+          register: uname_info
+          changed_when: false
+
+        - name: Check /etc/shells
+          shell: "ls -la /etc/shells; cat /etc/shells"
+          register: etc_shells
+          changed_when: false
+
+        - name: Check swap information
+          shell: "grep -i swap /etc/fstab; lsblk | grep -i swap"
+          register: swap_info
+          changed_when: false
+
+        - name: Check disk usage
+          shell: "df -h / /var /var/log /var/log/audit"
+          register: disk_usage
+          changed_when: false
+
+        - name: Check X11UseLocalhost in sshd_config
+          shell: "grep X11UseLocalhost /etc/ssh/sshd_config"
+          register: x11_use_localhost
+          changed_when: false
+
+        - name: Check rsyslog configuration
+          shell: "grep '@@' /etc/rsyslog.conf || true"
+          register: rsyslog_conf
+          changed_when: false
+
+        - name: Count bash processes
+          shell: "ps -ef | grep bash | grep -v grep | wc -l"
+          register: bash_processes
+          changed_when: false
+
+        - name: Check for NFSv4 in fstab
+          shell: |
+            grep 'vers=4' /etc/fstab || true
+          register: nfs_version_fstab
+          changed_when: false
+
+        - name: Check home mount
+          shell: "mount | grep home || true"
+          register: home_mount
+          changed_when: false
+
+        - name: Check NFS mount
+          shell: "mount | grep nfs || true"
+          register: nfs_mount
+          changed_when: false
+
+        - name: Check network routing
+          shell: "netstat -nr"
+          register: netstat_info
+          changed_when: false
+
+        - name: Check localtime and yum history
+          shell: "ls -la /etc/localtime; yum history"
+          register: localtime_yum_history
+          changed_when: false
+
+        - name: Check if yum.log exists
+          stat:
+            path: /var/log/yum.log
+          register: yum_log_stat
+
+        - name: Get last 10 lines if file exists
+          shell: |
+            sudo tail -10 /var/log/yum.log
+          register: yum_log
+          changed_when: false
+          when: yum_log_stat.stat.exists
+
+        - name: Check kernel version
+          shell: "uname -r; yum list installed kernel-uek | tail -1 | tr -s ' ' | cut -d ' ' -f 2"
+          register: kernel_version
+          changed_when: false
+
+        - name: Check tmux processes
+          shell: "ps -ef | grep tmux | grep -E 'ladmin|acasusr' || true"
+          register: tmux_processes
+          changed_when: false
+
+        - name: Ensure /infra directory exists
+          file:
+            path: /infra
+            state: directory
+            mode: '0755'  # Optional
+            owner: root   # Optional
+            group: root   # Optional
+
+        - name: Check sudoers for toakes safely
+          shell: |
+            grep -i 'toakes' /etc/sudoers || true
+          register: sudoers_toakes
+          changed_when: false
+
+        - name: Count tmux processes
+          shell: "ps -ef | grep tmux | grep -v grep | wc -l"
+          register: tmux_process_count
+          changed_when: false
+
+        - name: Check profile.d scripts
+          shell: "ls -la /etc/profile.d/modules.sh /etc/profile.d/which2.sh /etc/profile.d/scl-init.sh || true"
+          register: profile_d_scripts
+          changed_when: false
+
+        - name: Check /var/log disk usage
+          shell: "df -h /var/log"
+          register: var_log_disk_usage
+          changed_when: false
+
+        - name: Check swap in fstab
+          shell: "grep -i swap /etc/fstab"
+          register: swap_fstab
+          changed_when: false
+
+        - name: Check chrony sources
+          shell: "chronyc sources | grep -v Name | grep -v sources | grep -v '===='"
+          register: chrony_sources
+          changed_when: false
+
+        - name: Check uptime
+          shell: "uptime"
+          register: uptime_info
+          changed_when: false
+
+        - name: Check date
+          shell: "date"
+          register: date_info
+          changed_when: false
+
+        - name: Check RhostsRSAAuthentication in sshd_config
+          shell: |
+            grep -E '^RhostsRSAAuthentication\s+' /etc/ssh/sshd_config || echo ""
+          register: rhosts_rsa_auth
+          changed_when: false
+
+        - name: Remove RhostsRSAAuthentication from sshd_config if it exists
+          replace:
+            path: /etc/ssh/sshd_config
+            regexp: '^\s*RhostsRSAAuthentication\s+.*$'
+            replace: ''
+            backup: yes
+          register: sshd_config_modified
+
+        - name: Set fact for SSH config change status
+          set_fact:
+            sshd_config_changed: "{{ sshd_config_modified.changed }}"
+        
+        - name: Restart sshd service
+          systemd:
+            name: sshd
+            state: restarted
+          when: sshd_config_changed is true
+
+        - name: Check current timezone
+          shell: timedatectl | grep "Time zone" | awk '{print $3}'
+          register: current_timezone
+          changed_when: false
+
+        - name: Set timezone to UTC
+          shell: "timedatectl set-timezone UTC"
+          when: "'UTC' not in current_timezone.stdout"
+
+        - name: Check firewall configuration
+          shell: "firewall-cmd --list-all"
+          register: firewall_config
+          changed_when: false
+
+        - name: Check NFS mount configuration
+          shell: "grep 'vers=' /etc/nfsmount.conf; cat /etc/auto.home || true"
+          register: nfs_mount_conf
+          changed_when: false
+
+        - name: Check NFS version in auto.home
+          shell: "grep '=4' /etc/auto.home; mount | grep 'vers=4' || true"
+          register: nfs_version_auto_home
+          changed_when: false
+        
+        - name: Update NFS configuration only if files and lines exist
+          block:
+            - name: Check if Defaultvers line exists in nfsmount.conf
+              command: grep -q '^#\s*Defaultvers=4' /etc/nfsmount.conf
+              register: defaultvers_exists
+              ignore_errors: yes
+              changed_when: false
+
+            - name: Update Defaultvers in nfsmount.conf
+              replace:
+                path: /etc/nfsmount.conf
+                regexp: '^#\s*Defaultvers=4'
+                replace: 'Defaultvers=3'
+                backup: yes
+              when: defaultvers_exists.rc == 0
+              register: defaultvers_update
+
+            - name: Check if Nfsvers line exists in nfsmount.conf
+              command: grep -q '^#\s*Nfsvers=4' /etc/nfsmount.conf
+              register: nfsvers_exists
+              ignore_errors: yes
+              changed_when: false
+
+            - name: Update Nfsvers in nfsmount.conf
+              replace:
+                path: /etc/nfsmount.conf
+                regexp: '^#\s*Nfsvers=4'
+                replace: 'Nfsvers=3'
+                backup: yes
+              when: nfsvers_exists.rc == 0
+              register: nfsvers_update
+
+            - name: Check if fstype line exists in auto.home
+              command: grep -q 'fstype=nfs4' /etc/auto.home
+              register: autohome_exists
+              ignore_errors: yes
+              changed_when: false
+
+            - name: Update fstype in auto.home
+              replace:
+                path: /etc/auto.home
+                regexp: 'fstype=nfs4'
+                replace: 'nfsvers=3'
+                backup: yes
+              when: autohome_exists.rc == 0
+              register: autohome_update
+
+      rescue:
+        - name: Handle errors
+          debug:
+            msg: "An error occurred on {{ inventory_hostname }}"
+
+    - name: Generate report
+      template:
+        src: report.html.j2
+        dest: "/root/sysinfo/report.html"
+        mode: "0600"
+        #owner: "username"  #optional
+        #group: "groupname" #optional
+      delegate_to: localhost
+      run_once: true
+      vars:
+        active_hosts: "{{ ansible_play_hosts }}"
+        active_host_count: "{{ ansible_play_hosts | length }}"

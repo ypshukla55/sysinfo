@@ -1,0 +1,42 @@
+- name: Check and restart {{ service_item.display }}
+  block:
+    - name: Check and restart service
+      shell: |
+        # Check if service exists
+        if ! systemctl list-unit-files | grep -q '^{{ service_item.name }}\.service'; then
+          echo 'not_installed'
+          exit 0
+        fi
+        
+        # Get status
+        STATUS=$(systemctl is-active {{ service_item.name }})
+        if [ "$STATUS" = "active" ]; then
+          echo 'running'
+        else
+          systemctl restart {{ service_item.name }}
+          NEW_STATUS=$(systemctl is-active {{ service_item.name }})
+          if [ "$NEW_STATUS" = "active" ]; then
+            echo 'running_restarted'
+          else
+            echo 'stopped_restart_failed'
+          fi
+        fi
+      args:
+        executable: /bin/bash
+      register: service_check
+      changed_when: "'restart' in service_check.stdout"
+      ignore_errors: no
+
+    - name: Set status
+      set_fact:
+        "{{ service_item.display }}_status": >-
+          {% if service_check.stdout == 'not_installed' %}Service not found
+          {% elif service_check.stdout == 'running' %}Running
+          {% elif service_check.stdout == 'running_restarted' %}Running (restarted)
+          {% elif service_check.stdout == 'stopped_restart_failed' %}Stopped (restart failed)
+          {% else %}Status error: {{ service_check.stdout }}{% endif %}
+  
+  rescue:
+    - name: Set fallback status
+      set_fact:
+        "{{ service_item.name }}_status": "Status check failed"

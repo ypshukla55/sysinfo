@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Configuration Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #444;
+            margin-top: 30px;
+            background-color: #f0f0f0;
+            padding: 8px;
+            border-left: 4px solid #666;
+        }
+        table a {
+            text-decoration: none;
+            color: #06c;
+        }
+        table a:hover {
+            text-decoration: underline;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            margin-bottom: 30px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .status-positive {
+            color: #28a745; /* Green */
+            font-weight: bold;
+        }
+        .status-negative {
+            color: #dc3545; /* Red */
+            font-weight: bold;
+        }
+        .status-warning {
+            color: #ffc107; /* Yellow */
+            font-weight: bold;
+        }
+        .status-info {
+            color: #17a2b8; /* Blue */
+            font-weight: bold;
+        }
+        .host-section {
+            margin-bottom: 40px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #fafafa;
+        }
+        .summary-table {
+            width: auto;
+            margin: 20px 0;
+        }
+        .summary-table th, .summary-table td {
+            padding: 5px 10px;
+        }
+        .toc {
+            background-color: #f8f8f8;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 0;
+            column-count: 3;
+        }
+        .toc li {
+            margin-bottom: 5px;
+        }
+        .toc a {
+            text-decoration: none;
+            color: #06c;
+        }
+        .toc a:hover {
+            text-decoration: underline;
+        }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+            font-family: monospace;
+        }
+        .scrollable {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>System Configuration Report</h1>
+    <p>Generated on: {{ ansible_date_time.iso8601 }}</p>
+    <p>Total hosts: {{ hostvars|length }}</p>
+
+    <!-- Summary Section -->
+    <h2>Summary Information</h2>
+    <table class="summary-table">
+        <tr>
+            <th>Hostname</th>
+            <th>IP Address</th>
+            <th>Kernel Version</th>
+            <th>Uptime</th>
+        </tr>
+        {% for host in limited_hosts %}
+        <tr>
+            <td><a href="#host-{{ host }}" style="text-decoration: none;">{{ hostvars[host].ansible_hostname }}</a></td>
+            <td>{{ hostvars[host].ansible_all_ipv4_addresses | default('N/A') }}</td>
+            <td>
+                {% if hostvars[host].kernel_version is defined and 'stdout_lines' in hostvars[host].kernel_version %}
+                    {{ hostvars[host].kernel_version.stdout_lines | first | default('N/A') }}
+                {% else %}
+                    N/A
+                {% endif %}
+            </td>
+            <td>{{ hostvars[host].uptime_info.stdout if hostvars[host].uptime_info is defined and 'stdout' in hostvars[host].uptime_info else 'N/A' }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <!-- Detailed Host Sections -->
+    {% for host in limited_hosts %}
+    <div class="host-section" id="host-{{ host }}">
+        <h2>{{ hostvars[host].ansible_hostname }}</h2>
+        
+        <table>
+            <tbody>
+                <tr>
+                    <td>Hostname</td>
+                    <td>{{ hostvars[host].ansible_hostname }}</td>
+                </tr>
+                <tr>
+                    <td>SSSD_Status</td>
+                    <td>
+                        <span class="{% if 'Running' in SSSD_status %}status-positive{% else %}status-negative{% endif %}">
+                            {{ SSSD_status }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Rsyslog_Status</td>
+                    <td>
+                        <span class="{% if 'Running' in Rsyslog_status %}status-positive{% else %}status-negative{% endif %}">
+                            {{ Rsyslog_status }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Rpcgssd_Status</td>
+                    <td>
+                        <span class="{% if 'Running' in Rpcgssd_status %}status-positive{% else %}status-negative{% endif %}">
+                            {{ Rpcgssd_status }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Named_Chroot_Status</td>
+                    <td>
+                        <span class="{% if 'Running' in Named_Chroot_status %}status-positive{% else %}status-negative{% endif %}">
+                            {{ Named_Chroot_status }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Autofs_Status</td>
+                    <td>
+                        <span class="{% if 'Running' in Autofs_status %}status-positive{% else %}status-negative{% endif %}">
+                            {{ Autofs_status }}
+                        </span>
+                    </td>
+                </tr>
+                <tr>
+                    <td>PermitRootLogin</td>
+                    <td>{{ hostvars[host].permit_root_login.stdout if hostvars[host].permit_root_login is defined and 'stdout' in hostvars[host].permit_root_login else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Ansible_Installed</td>
+                    <td>{{ hostvars[host].ansible_check.stdout | default('Not installed') | capitalize }}</td>
+                </tr>
+                <tr>
+                    <td>IPAddress_x.x.20.224</td>
+                    <td>{{ hostvars[host].ip_addr | default('') }}</td>
+                </tr>
+                <tr>
+                    <td>Uname_Info</td>
+                    <td>{{ hostvars[host].uname_info.stdout if hostvars[host].uname_info is defined and 'stdout' in hostvars[host].uname_info else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Etc_Shells</td>
+                    <td>
+                        {% if hostvars[host].etc_shells is defined and 'stdout_lines' in hostvars[host].etc_shells %}
+                            {{ (hostvars[host].etc_shells.stdout_lines | select('match', '^/') | list | join(', ')) }}
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Swap_Info</td>
+                    <td>
+                        {% if hostvars[host].swap_info is defined and hostvars[host].swap_info.stdout != '' %}
+                            <pre>{{ hostvars[host].swap_info.stdout }}</pre>
+                        {% else %}
+                            None detected
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Disk_Usage</td>
+                    <td>
+                        {% if hostvars[host].disk_usage is defined and 'stdout_lines' in hostvars[host].disk_usage %}
+                            <div class="scrollable">
+                                <pre>{{ (hostvars[host].disk_usage.stdout_lines | reject('match', 'Filesystem') | list | join('\n')) }}</pre>
+                            </div>
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>X11UseLocalhost</td>
+                    <td>{{ hostvars[host].x11_use_localhost.stdout if hostvars[host].x11_use_localhost is defined and 'stdout' in hostvars[host].x11_use_localhost else '' }}</td>
+                </tr>
+                <tr>
+                    <td>RsyslogConf</td>
+                    <td>
+                        {% if hostvars[host].rsyslog_conf is defined and 'stdout' in hostvars[host].rsyslog_conf %}
+                            <div class="scrollable">
+                                <pre>{{ hostvars[host].rsyslog_conf.stdout }}</pre>
+                            </div>
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Bash_Processes</td>
+                    <td>{{ hostvars[host].bash_processes.stdout if hostvars[host].bash_processes is defined and 'stdout' in hostvars[host].bash_processes else '0' | trim }}</td>
+                </tr>
+                <tr>
+                    <td>NFSVersion_Fstab</td>
+                    <td>
+                        {% if hostvars[host].nfs_version_fstab is defined and hostvars[host].nfs_version_fstab.stdout | trim != '' %}
+                            {{ hostvars[host].nfs_version_fstab.stdout | trim }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Home_Mount</td>
+                    <td>{{ hostvars[host].home_mount.stdout if hostvars[host].home_mount is defined and 'stdout' in hostvars[host].home_mount else '' }}</td>
+                </tr>
+                <tr>
+                    <td>NFS_Mount</td>
+                    <td>{{ hostvars[host].nfs_mount.stdout if hostvars[host].nfs_mount is defined and 'stdout' in hostvars[host].nfs_mount else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Netstat_Info</td>
+                    <td>
+                        {% if hostvars[host].netstat_info is defined and 'stdout_lines' in hostvars[host].netstat_info %}
+                            <div class="scrollable">
+                                <pre>{{ (hostvars[host].netstat_info.stdout_lines | reject('match', 'Kernel IP routing table') | list | join('\n')) }}</pre>
+                            </div>
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Localtime_Yum_History</td>
+                    <td>
+                        {% if hostvars[host].localtime_yum_history is defined and hostvars[host].localtime_yum_history.stdout %}
+                            <pre>{{ hostvars[host].localtime_yum_history.stdout }}</pre>
+                        {% else %}
+                            No data available
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Yum_Log</td>
+                    <td>
+                        {% if hostvars[host].yum_log is defined and 'stdout' in hostvars[host].yum_log %}
+                            <div class="scrollable">
+                                <pre>{{ hostvars[host].yum_log.stdout }}</pre>
+                            </div>
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Kernel_Version</td>
+                    <td>
+                        {% if hostvars[host].kernel_version is defined and hostvars[host].kernel_version.stdout_lines %}
+                            {{ hostvars[host].kernel_version.stdout_lines[0] | default('Unknown') }}
+                            {% if hostvars[host].kernel_version.stdout_lines | length > 1 %}
+                                <br>(UEK: {{ hostvars[host].kernel_version.stdout_lines[1] }})
+                            {% else %}
+                                <br>(UEK kernel not installed)
+                            {% endif %}
+                        {% else %}
+                            Not checked
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Tmux_Processes</td>
+                    <td>{{ hostvars[host].tmux_processes.stdout if hostvars[host].tmux_processes is defined and 'stdout' in hostvars[host].tmux_processes else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Sudoers_Toakes</td>
+                    <td>
+                        {% if hostvars[host].sudoers_toakes is defined and hostvars[host].sudoers_toakes.stdout | trim != '' %}
+                            {{ hostvars[host].sudoers_toakes.stdout | trim }}
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Tmux_Process_Count</td>
+                    <td>{{ hostvars[host].tmux_process_count.stdout if hostvars[host].tmux_process_count is defined and 'stdout' in hostvars[host].tmux_process_count else '0' | trim }}</td>
+                </tr>
+                <tr>
+                    <td>ProfileD_Scripts</td>
+                    <td>
+                        {% if hostvars[host].profile_d_scripts is defined %}
+                            <div class="scrollable">
+                                {% if hostvars[host].profile_d_scripts.stderr %}
+                                    {% for error in hostvars[host].profile_d_scripts.stderr.split('\n') %}
+                                        {% if error %}
+                                            <div>Missing: {{ error.split("'")[1] }}</div>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
+                                {% if hostvars[host].profile_d_scripts.stdout %}
+                                    <div>{{ hostvars[host].profile_d_scripts.stdout }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Var_Log_Disk_Usage</td>
+                    <td>
+                        {% if hostvars[host].var_log_disk_usage is defined and 'stdout_lines' in hostvars[host].var_log_disk_usage %}
+                            {{ (hostvars[host].var_log_disk_usage.stdout_lines | last | default('') | regex_replace('\\s+', ' ')) }}
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Swap_Fstab</td>
+                    <td>{{ hostvars[host].swap_fstab.stdout if hostvars[host].swap_fstab is defined and 'stdout' in hostvars[host].swap_fstab else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Chrony_Sources</td>
+                    <td>
+                        {% if hostvars[host].chrony_sources is defined and hostvars[host].chrony_sources.stdout %}
+                            <div class="scrollable" style="font-family: monospace">
+                                {{ hostvars[host].chrony_sources.stdout | replace(' ', '&nbsp;') | replace('\n', '<br>') }}
+                            </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>Uptime_Info</td>
+                    <td>{{ hostvars[host].uptime_info.stdout if hostvars[host].uptime_info is defined and 'stdout' in hostvars[host].uptime_info else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Date_Info</td>
+                    <td>{{ hostvars[host].date_info.stdout if hostvars[host].date_info is defined and 'stdout' in hostvars[host].date_info else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Rhosts_RSA_Auth</td>
+                    <td>{{ 'Updated' if hostvars[host].rhosts_rsa_auth is defined and hostvars[host].rhosts_rsa_auth.changed is defined and hostvars[host].rhosts_rsa_auth.changed else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Rhosts_Removal_Status</td>
+                    <td>{{ 'Updated' if hostvars[host].sshd_config_changed is defined and hostvars[host].sshd_config_changed.changed is defined and hostvars[host].sshd_config_changed.changed else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Firewall Configuration</td>
+                    <td>
+                        <div class="scrollable">
+                            <pre style="font-family: monospace; margin: 0;">{{ firewall_config.stdout }}</pre>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>NFSMount_Conf</td>
+                    <td>
+                        {% if hostvars[host].nfs_mount_conf is defined and 'stdout_lines' in hostvars[host].nfs_mount_conf %}
+                            {{ (hostvars[host].nfs_mount_conf.stdout_lines | list | join('; ')) }}
+                        {% else %}
+                            None
+                        {% endif %}
+                    </td>
+                </tr>
+                <tr>
+                    <td>NFSVersion_AutoHome</td>
+                    <td class="{{ 'yes' if hostvars[host].nfs_version_auto_home is defined and hostvars[host].nfs_version_auto_home.stdout is defined and hostvars[host].nfs_version_auto_home.stdout else 'no' }}">
+                        {{ 'Yes' if hostvars[host].nfs_version_auto_home is defined and hostvars[host].nfs_version_auto_home.stdout is defined and hostvars[host].nfs_version_auto_home.stdout else 'No' }}
+                    </td>
+                </tr>
+                <tr>
+                    <td>DefaultVers_NfsMount</td>
+                    <td>{{ 'Updated' if hostvars[host].defaultvers_update is defined and hostvars[host].defaultvers_update.changed is defined and hostvars[host].defaultvers_update.changed else '' }}</td>
+                </tr>
+                <tr>
+                    <td>NfsVers_NfsMount</td>
+                    <td>{{ 'Updated' if hostvars[host].nfsvers_update is defined and hostvars[host].nfsvers_update.changed is defined and hostvars[host].nfsvers_update.changed else '' }}</td>
+                </tr>
+                <tr>
+                    <td>Fstype_AutoHome</td>
+                    <td>{{ 'Updated' if hostvars[host].autohome_update is defined and hostvars[host].autohome_update.changed is defined and hostvars[host].autohome_update.changed else '' }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+</body>
+</html>
